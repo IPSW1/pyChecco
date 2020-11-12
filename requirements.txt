@@ -1,0 +1,14 @@
+Jinja2
+MarkupSafe
+bytecode
+click
+colorama
+coverage
+decorator
+lxml
+networkx
+pycobertura
+pydot
+pyparsing
+setuptools
+tabulate

@@ -1,0 +1,9 @@
+__pycache__
+.DS_STORE
+.idea
+venv
+venv38
+log.txt
+test.bin
+logs
+*.pyc
