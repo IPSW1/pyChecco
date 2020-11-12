@@ -34,6 +34,7 @@ def _create_argument_parser() -> argparse.ArgumentParser:
     # Show path as required and not optional
     required_arguments = parser.add_argument_group("required arguments")
     required_arguments.add_argument("-p", "--path", required=True, help="Path to project")
+    required_arguments.add_argument("--test-sample", required=True, help="Path to test sample")
 
     # Replicates standard behavior, but shows optional arguments below required arguments
     optional_arguments = parser.add_argument_group("optional arguments")
@@ -98,12 +99,12 @@ def main(argv: List[str] = None):
         raise ValueError("Generation of HTML reports is only possible when line coverage is enabled.")
 
     # Start main execution
-    configuration = Configuration(project_path=args.path, report_dir=args.output, debug_output=args.debug,
-                                  line_coverage=line_coverage, instruction_coverage=instruction_coverage,
-                                  text_report=args.text, csv_report=args.csv, html_report=args.html,
-                                  pattern=args.pattern, max_test_time=args.max_test_time,
-                                  max_slice_time=args.max_slice_time, custom_assertions=args.custom_assertions,
-                                  source=args.source, file=args.file)
+    configuration = Configuration(project_path=args.path, test_sample=args.test_sample, report_dir=args.output,
+                                  debug_output=args.debug, line_coverage=line_coverage,
+                                  instruction_coverage=instruction_coverage, text_report=args.text,
+                                  csv_report=args.csv, html_report=args.html, pattern=args.pattern,
+                                  max_test_time=args.max_test_time, max_slice_time=args.max_slice_time,
+                                  custom_assertions=args.custom_assertions, source=args.source, file=args.file)
     checked_coverage = CheckedCoverage(configuration)
     checked_coverage.run()
 

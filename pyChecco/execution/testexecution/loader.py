@@ -22,11 +22,13 @@ from unittest.loader import TestLoader
 
 from pyChecco.execution.executiontracer import ExecutionTracer
 from pyChecco.execution.executiontrace import ExecutionTrace
+from pyChecco.execution.testexecution.sample_suite import SampleSuite
 
 
 class CustomTestLoader(TestLoader):
     def __init__(self, module_traces: Dict[str, ExecutionTrace]):
         super().__init__()
+        self.suiteClass = SampleSuite
         self._module_traces = module_traces
 
     def _get_module_from_name(self, name) -> ModuleType:

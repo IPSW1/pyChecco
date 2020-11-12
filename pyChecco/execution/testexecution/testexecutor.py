@@ -32,6 +32,8 @@ from pyChecco.slicer.dynamic_slicer import DynamicSlicer, SlicingCriterion
 from pyChecco.slicer.instruction import UniqueInstruction
 from pyChecco.utils.exceptions import SlicingTimeoutException
 
+import pyChecco.execution.testexecution.sample_suite as sampled_mod
+
 
 class TestExecutor:
     def __init__(self, configuration: Configuration, tracer: ExecutionTracer):
@@ -41,6 +43,11 @@ class TestExecutor:
         self._module_traces: Dict[str, ExecutionTrace] = {}
         self.test_loader: CustomTestLoader = CustomTestLoader(self._module_traces)
         self._testsuite: TestSuite = self._discover_tests()
+
+        self.sampled_tests = []
+        self._load_sampled_tests()
+        sampled_mod.sampled_tests = self.sampled_tests
+
         self._module_slices: Dict[str, List[UniqueInstruction]] = dict()
         self._known_code_objects = None
         self._num_testcases = self._testsuite.countTestCases()
@@ -56,8 +63,6 @@ class TestExecutor:
         self._full_execution_time: float = 0.0
         self._current_execution_start_time: Tuple[float, str] = (0.0, "")
         self._full_slicing_time: float = 0.0
-
-        self._current_trace = None
 
     def execute_testsuite(self) -> TestListener:
         test_listener: TestListener = TestListener(self._configuration, self)
@@ -102,8 +107,6 @@ class TestExecutor:
 
         :param trace: Trace which should be sliced.
         """
-        self._current_trace = trace
-
         debug_output = self._configuration.debug_out
 
         self.update_known_code_objects()
@@ -221,5 +224,8 @@ class TestExecutor:
                len(self._unique_assertions), self._num_found_assertions, self._num_sliced_assertions, \
                self._num_aborted_assertion_slicing, self._full_execution_time, self._full_slicing_time
 
-    def get_current_trace(self) -> ExecutionTrace:
-        return self._current_trace
+    def _load_sampled_tests(self):
+        f = open(os.path.join(self._configuration.project_path, self._configuration.test_sample), 'r')
+
+        for line in f:
+            self.sampled_tests.append(line[:-1])
