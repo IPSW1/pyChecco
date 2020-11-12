@@ -19,15 +19,11 @@ from typing import List, Set, Optional
 
 import pyChecco.execution.executed_instruction as ei
 
-from pyChecco.utils.opcodes import *
-
 
 class TracedAssertion:
-    def __init__(self, code_object_id: int, node_id: int, lineno: int, trace_position_start: int,
+    def __init__(self, code_object_id: int, trace_position_start: int,
                  traced_assertion_call: Optional[ei.ExecutedInstruction] = None) -> None:
         self.code_object_id = code_object_id
-        self.node_id = node_id
-        self.lineno = lineno
         self.trace_position_start = trace_position_start
 
         self.trace_position_end = -1
@@ -57,9 +53,6 @@ class UniqueAssertion:
                str(self.assertion_call_instruction.offset) + "_"
 
         return hash(hash_string)
-
-    def __str__(self):
-        return str(self.assertion_call_instruction.lineno)
 
 
 class ExecutionTrace:
@@ -112,14 +105,13 @@ class ExecutionTrace:
 
         self.executed_instructions.append(executed_instr)
 
-    def start_assertion(self, code_object_id: int, node_id: int, lineno: int) -> TracedAssertion:
-        self._current_assertion = TracedAssertion(code_object_id, node_id, lineno, len(self.executed_instructions) - 1)
+    def start_assertion(self, code_object_id: int) -> TracedAssertion:
+        self._current_assertion = TracedAssertion(code_object_id, len(self.executed_instructions) - 1)
         return self._current_assertion
 
     def end_assertion(self):
-        assert self._current_assertion.traced_assertion_call
-        assert self._current_assertion.traced_assertion_call.opcode in [CALL_METHOD, CALL_FUNCTION_KW, CALL_FUNCTION_EX]
-        assert self._current_assertion.trace_position_end > 0
+        self._current_assertion.traced_assertion_call = self.executed_instructions[-1]
+        self._current_assertion.trace_position_end = len(self.executed_instructions) - 1
 
         self.traced_assertions.append(self._current_assertion)
         self.unique_assertions.add(UniqueAssertion(self._current_assertion.traced_assertion_call))

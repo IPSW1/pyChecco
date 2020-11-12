@@ -103,7 +103,7 @@ class CheckedCoverage:
         complete_time = time.process_time() - complete_start_time
 
         self.slicing_statistics_output(result, executor, complete_time, compilation_time, instrumentation_time,
-                                       reporting_time, recompilation_time)
+                                       reporting_time, recompilation_time, ExecutionTracer.get_found_assertions())
 
     def compile_project(self) -> None:
         # Compile all files in project directory (exclude all in venv directory for now)
@@ -169,7 +169,7 @@ class CheckedCoverage:
 
     def slicing_statistics_output(self, result: TestListener, executor: TestExecutor, complete_time: float,
                                   compilation_time: float, instrumentation_time: float, reporting_time: float,
-                                  recompilation_time: float):
+                                  recompilation_time: float, found_assertions: List[str]):
         statistics = executor.get_statistics()
         stat_output = "Statistics:\n-----\n"
         stat_output += "Overall\n" + \
@@ -193,6 +193,8 @@ class CheckedCoverage:
                        "\tSlicing: " + "{:.2f}s".format(statistics[8]) + "\n" + \
                        "\tReporting: " + "{:.2f}s".format(reporting_time) + "\n" + \
                        "\tRecompilation: " + "{:.2f}s".format(recompilation_time) + "\n\n"
+
+        stat_output += "Found assertion names: " + str(found_assertions) + "\n\n"
 
         now = datetime.now()
         stat_output += "Finished: " + now.strftime("%d.%m.%Y %H:%M:%S")

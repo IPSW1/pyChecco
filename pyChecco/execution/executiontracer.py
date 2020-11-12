@@ -30,17 +30,15 @@
 """Provides capabilities to track branch distances."""
 import inspect
 import unittest
-import ctypes
 
-from types import MethodType, FunctionType, BuiltinFunctionType, BuiltinMethodType
-from typing import Union
+from types import MethodType, BuiltinFunctionType, BuiltinMethodType
+from typing import Union, Set
 # noinspection PyProtectedMember
 from bytecode import CellVar, FreeVar
 
 from pyChecco.configuration import Configuration
 from pyChecco.execution.executiontrace import ExecutionTrace, TracedAssertion
 from pyChecco.execution.codeobjectmetadata import CodeObjectMetaData
-from pyChecco.slicer.instruction import MEMORY_USE_INSTRUCTIONS
 from pyChecco.utils.opcodes import *
 
 immutable_types = [int, float, complex, str, tuple, frozenset, bytes]
@@ -71,6 +69,7 @@ class ExecutionTracer:
     _known_object_addresses = set()
     _current_assertion: TracedAssertion = None
     _assertion_stack_counter = 0
+    _found_assertions = set()
 
     def __init__(self, configuration: Configuration) -> None:
         ExecutionTracer._init_trace()
@@ -100,11 +99,6 @@ class ExecutionTracer:
     @staticmethod
     def get_trace() -> ExecutionTrace:
         """Get the trace with the current information."""
-
-        # Finished last found assertion
-        if ExecutionTracer._current_assertion:
-            ExecutionTracer._trace.end_assertion()
-
         return ExecutionTracer._trace
 
     @staticmethod
@@ -176,27 +170,12 @@ class ExecutionTracer:
     @staticmethod
     def track_attribute_access(module: str, code_object_id: int, node_id: int, op: int, lineno: int, offset: int,
                                attr_name: str, src_address: int, arg_address: int, arg_type: type) -> None:
-        if op in MEMORY_USE_INSTRUCTIONS and arg_type in [MethodType, FunctionType]:
-            custom_assertions = ExecutionTracer._configuration.custom_assertions
-            trace = ExecutionTracer._trace
-
-            if custom_assertions and attr_name in custom_assertions:
-                if ExecutionTracer._current_assertion:
-                    # Start of a new assertion, but old not finished -> end old here
-                    trace.end_assertion()
-                ExecutionTracer._current_assertion = trace.start_assertion(code_object_id, node_id, lineno)
-            elif attr_name.startswith("assert") and attr_name in dir(unittest.TestCase):
-                # Standard detection method
-                # The loaded method is reconstructed from memory to check if it is indeed a method of the
-                # unittest TestCase (and not, for example, a custom method with the same name)
-                # noinspection PyTypeChecker
-                source_object = ctypes.cast(src_address, ctypes.py_object).value
-                if hasattr(source_object, "__module__") and source_object.__module__ == testcase_mod and \
-                        hasattr(source_object, "__qualname__") and source_object.__qualname__.startswith(testcase_cls):
-                    if ExecutionTracer._current_assertion:
-                        # Start of a new assertion, but old not finished -> end old here
-                        trace.end_assertion()
-                    ExecutionTracer._current_assertion = trace.start_assertion(code_object_id, node_id, lineno)
+        # The start of an assertion needs a special treatment to find the scope of the assertion
+        if op == LOAD_METHOD and ExecutionTracer._current_assertion:
+            ExecutionTracer._assertion_stack_counter += 1
+        if op == LOAD_METHOD and arg_type == MethodType and attr_name.startswith("assert"):
+            ExecutionTracer._found_assertions.add(attr_name)
+            ExecutionTracer._current_assertion = ExecutionTracer._trace.start_assertion(code_object_id)
 
         # Different built-in methods and functions often have the same address when accessed sequentially.
         # The address is not recorded in such cases.
@@ -220,14 +199,12 @@ class ExecutionTracer:
     def track_call(module: str, code_object_id: int, node_id: int, op: int, lineno: int, offset: int, arg: int) -> None:
         ExecutionTracer._trace.add_call_instruction(module, code_object_id, node_id, op, lineno, offset, arg)
 
-        # Update current assertion
-        # It is either finished already or we use the last call instruction in this line
-        if ExecutionTracer._current_assertion:
-            current_assertion = ExecutionTracer._current_assertion
-            if current_assertion.code_object_id == code_object_id and current_assertion.node_id == node_id and \
-                    current_assertion.lineno == lineno:
-                current_assertion.traced_assertion_call = ExecutionTracer._trace.executed_instructions[-1]
-                current_assertion.trace_position_end = len(ExecutionTracer._trace.executed_instructions) - 1
+        if op == CALL_METHOD and ExecutionTracer._current_assertion and ExecutionTracer._assertion_stack_counter == 0:
+            ExecutionTracer._trace.end_assertion()
+            ExecutionTracer._current_assertion = None
+            ExecutionTracer._assertion_stack_counter = 0
+        if op == CALL_METHOD and ExecutionTracer._current_assertion:
+            ExecutionTracer._assertion_stack_counter -= 1
 
     @staticmethod
     def track_return(module: str, code_object_id: int, node_id: int, op: int, lineno: int, offset: int) -> None:
@@ -237,6 +214,15 @@ class ExecutionTracer:
     def attribute_lookup(ob, attribute: str) -> int:
         # Check the dictionary of classes making up the MRO (_PyType_Lookup)
         # The attribute must be a data descriptor to be prioritized here
+
+        # Custom special case for oauthlib to avoid infinite recursion!
+        if "oauthlib" in ExecutionTracer._configuration.project_path:
+            if attribute == "add_id_token" or attribute == "id_token_hash":
+                return -1
+        # Custom special case for python-nameparser to avoid infinite recursion!
+        if "python-nameparser" in ExecutionTracer._configuration.project_path:
+            if attribute == "get":
+                return -1
 
         for cls in type(ob).__mro__:
             if attribute in cls.__dict__:
@@ -262,3 +248,7 @@ class ExecutionTracer:
                 return id(cls)
 
         return -1
+
+    @staticmethod
+    def get_found_assertions() -> Set[str]:
+        return ExecutionTracer._found_assertions

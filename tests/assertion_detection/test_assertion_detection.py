@@ -62,7 +62,7 @@ class AssertionDetection(unittest.TestCase):
 
         self.assertEqual(len(trace.traced_assertions), 1)
 
-    @unittest.expectedFailure
+    # For lexical assertions this also works!
     def test_custom_assertion_unspecified(self):
         module_file = "metatest_custom.py"
         module_path = example_modules_path + module_file

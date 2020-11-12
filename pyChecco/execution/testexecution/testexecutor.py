@@ -57,8 +57,6 @@ class TestExecutor:
         self._current_execution_start_time: Tuple[float, str] = (0.0, "")
         self._full_slicing_time: float = 0.0
 
-        self._current_trace = None
-
     def execute_testsuite(self) -> TestListener:
         test_listener: TestListener = TestListener(self._configuration, self)
         # noinspection PyTypeChecker
@@ -85,10 +83,6 @@ class TestExecutor:
                 self._num_canceled_testcases += 1
                 print("Test exceeded maximum configured runtime:", test_id)
                 print("---------------------------------------------------------------------\n")
-            elif result == TestResult.UNEXPECTED_SUCCESS:
-                self._num_canceled_testcases += 1
-                print("Test was unexpected success:", test_id)
-                print("---------------------------------------------------------------------\n")
 
     def stop_test(self, test_id: str):
         assert self._current_execution_start_time[1] == test_id, "Test cases not matching for time calculation"
@@ -102,8 +96,6 @@ class TestExecutor:
 
         :param trace: Trace which should be sliced.
         """
-        self._current_trace = trace
-
         debug_output = self._configuration.debug_out
 
         self.update_known_code_objects()
@@ -220,6 +212,3 @@ class TestExecutor:
         return self._num_testcases, self._num_successful_testcases, self._num_canceled_testcases, \
                len(self._unique_assertions), self._num_found_assertions, self._num_sliced_assertions, \
                self._num_aborted_assertion_slicing, self._full_execution_time, self._full_slicing_time
-
-    def get_current_trace(self) -> ExecutionTrace:
-        return self._current_trace

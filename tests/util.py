@@ -197,7 +197,7 @@ def trace_call(module_dir: str, module_file: str, pattern: str, custom_assertion
     test_executor.execute_testsuite()
 
     # Get trace
-    trace = test_executor.get_current_trace()
+    trace = tracer.get_trace()
 
     py_compile.compile(module_file, cfile=compiled_file)
 
